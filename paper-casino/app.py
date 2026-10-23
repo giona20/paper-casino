@@ -34,4 +34,4 @@ if "YOUR-LIQUID-ISLAND" in url:
 
 html = Path(__file__).with_name("index.html").read_text(encoding="utf-8")
 html = html.replace("__ISLAND_URL__", url)
-components.html(html, height=1900, scrolling=True)
+components.html(html, height=1750, scrolling=True)

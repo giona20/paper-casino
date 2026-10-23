@@ -323,7 +323,12 @@ body{font-family:var(--body);font-size:14px;letter-spacing:.005em}
 .islbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
 .islname{font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .islbar a.sound{text-decoration:none;display:inline-block}
-.islwrap{position:relative;height:clamp(520px,78vh,820px);background:#0b2a3a}
+.islwrap{position:relative;height:640px;background:#0b2a3a}
+#islStatus{text-transform:none;letter-spacing:0;font-family:var(--code);font-size:12px}
+.islwatch{display:flex;align-items:center;gap:8px;flex:1;min-width:0;flex-wrap:wrap}
+.islwatch label{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.islwatch input{flex:1;min-width:180px;max-width:420px;background:var(--floor);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-family:var(--code);font-size:12.5px;color:var(--chalk)}
+.islwatch input[aria-invalid=true]{border-color:var(--short)}
 .islwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .islempty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px}
 .islempty div{max-width:46ch;display:flex;flex-direction:column;gap:10px;align-items:center}
@@ -454,7 +459,8 @@ body{font-family:var(--body);font-size:14px;letter-spacing:.005em}
     <!-- BATTLES -->
     <section class="stage isl" id="g-island" hidden>
       <div class="islbar">
-        <span class="islname">Liquid Island · Papertrade mode</span>
+        <div class="islwatch"><label for="islAddr">Papertrade wallet</label><input id="islAddr" type="text" placeholder="0x… paste a wallet to watch" spellcheck="false" autocomplete="off"><button class="sound" id="islGo">Watch</button></div>
+        <span class="islname" id="islStatus">Demo desk</span>
         <a class="sound" id="islOpen" href="#" target="_blank" rel="noopener">Open full screen ↗</a>
       </div>
       <div class="islwrap" id="islWrap"></div>
@@ -910,7 +916,7 @@ $('musVol').oninput=e=>{MUS.vol=e.target.value/100;$('musVolV').textContent=e.ta
 /* ---------- wallet (demo) ---------- */
 const WM=$('wModal');const showStep=n=>[0,1,2,3].forEach(i=>$('wStep'+i).hidden=i!==n);
 const short=a=>a.slice(0,6)+'…'+a.slice(-4);
-function walletUI(){const b=$('btnWallet');if(S.wallet&&S.wallet.key){b.textContent=short(S.wallet.addr);b.classList.add('on');}else{b.textContent='Connect wallet';b.classList.remove('on');}
+function walletUI(){if(S.game==='island'&&typeof islandShow==='function')setTimeout(islandShow,0);const b=$('btnWallet');if(S.wallet&&S.wallet.key){b.textContent=short(S.wallet.addr);b.classList.add('on');}else{b.textContent='Connect wallet';b.classList.remove('on');}
   if(S.wallet){$('wAddr').textContent=S.wallet.addr;$('wAddr2').textContent=S.wallet.addr;$('wName').textContent=S.wallet.name;$('wBal').textContent=fmt(S.bal);}}
 function openWallet(){WM.hidden=false;if(!S.wallet){showStep(0);$('wTitle').textContent='Connect wallet';}else if(!S.wallet.key){showStep(2);$('wTitle').textContent='One-click trading';}else{showStep(3);$('wTitle').textContent='Your account';}walletUI();}
 $('btnWallet').onclick=openWallet;$('wX').onclick=()=>WM.hidden=true;WM.addEventListener('click',e=>{if(e.target===WM)WM.hidden=true;});
@@ -987,12 +993,20 @@ function drawBanner(now){const cv=$('cvB');if(!cv)return;const d=window.devicePi
 /* ---------- Liquid Island (hosted separately, embedded here) ---------- */
 const ISLAND_URL='__ISLAND_URL__';let islMode='?mode=paper';
 const islReady=()=>/^https?:\/\//.test(ISLAND_URL);
+const ADDR_RE=/^0x[0-9a-fA-F]{40}$/;let islWatch='';try{const v=localStorage.getItem('pc-island-wallet');if(v&&ADDR_RE.test(v))islWatch=v;}catch(e){}
+function islWallet(){if(islWatch)return islWatch;if(S.wallet&&S.wallet.key&&ADDR_RE.test(S.wallet.addr))return S.wallet.addr;return '';}
 function islandShow(){if(MUS.on){S.islMusic=true;musicToggle();}
-  const w=$('islWrap'),src=ISLAND_URL.replace(/\/$/,'')+'/'+islMode;
+  const w=$('islWrap'),base=ISLAND_URL.replace(/\/$/,'')+'/',wal=islWallet();
+  const q=new URLSearchParams({mode:'paper',embed:'1'});if(wal)q.set('wallet',wal);const src=base+'?'+q.toString();
+  const qf=new URLSearchParams({mode:'paper'});if(wal)qf.set('wallet',wal);
+  $('islStatus').textContent=wal?'Watching '+short(wal):'Demo desk';if(!$('islAddr').value&&islWatch)$('islAddr').value=islWatch;
   if(!islReady()){w.innerHTML='<div class="islempty"><div><h3>Liquid Island</h3><p>The game runs on its own host. Set its address in app.py (ISLAND_URL) and it will load here. Embedded games don\'t load inside this preview; they do in the Streamlit app.</p></div></div>';$('islOpen').hidden=true;return;}
-  $('islOpen').hidden=false;$('islOpen').href=src;
+  $('islOpen').hidden=false;$('islOpen').href=base+'?'+qf.toString();
   const f=w.querySelector('iframe');if(f&&f.dataset.src===src)return;
   w.innerHTML=`<iframe title="Liquid Island" src="${src}" data-src="${src}" allow="autoplay; fullscreen; clipboard-write" allowfullscreen></iframe>`;}
+function islWatchSet(){const v=$('islAddr').value.trim();if(v&&!ADDR_RE.test(v)){$('islAddr').setAttribute('aria-invalid','true');toast('That is not a wallet address (0x + 40 hex characters)');return;}
+  $('islAddr').removeAttribute('aria-invalid');islWatch=v;try{v?localStorage.setItem('pc-island-wallet',v):localStorage.removeItem('pc-island-wallet');}catch(e){}sfx.click();toast(v?'Watching '+short(v):'Back to the demo desk');islandShow();}
+$('islGo').onclick=islWatchSet;$('islAddr').addEventListener('keydown',e=>{if(e.key==='Enter')islWatchSet();});
 
 function frame(now){for(const f of [()=>drawPlinko(now),()=>stepWheel(now),()=>drawWheel(now),drawCrash,()=>drawFx(),()=>drawBanner(now)]){try{f();}catch(e){console.error(e);}}requestAnimationFrame(frame);}
 setInterval(()=>{$('hOnline').textContent=(1180+Math.floor(Math.random()*90)).toLocaleString();},3000);
